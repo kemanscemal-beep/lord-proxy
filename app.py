@@ -59,8 +59,8 @@ def coz_video_cekirdek(url, max_kalite):
         except Exception:
             pass
 
-    # STRATEJİ 2: GENEL SİTELER - CLOUDFLARE BYPASS MODU (YENİ SİBER SİGORTA)
-    # [SİBER KAMUFLAJ]: Hatanın bizden istediği 'impersonate' yani birebir tarayıcı kopyalama argümanlarını çaktık!
+    # STRATEJİ 2: GENEL SİTELER - TAM MANUEL IMPERSONATE SEVİYESİ
+    # [SİBER DEVRİM]: Sadece argüman değil, alt motoru zorla devreye sokuyoruz
     ydl_opts = {
         'format': 'best',
         'quiet': True,
@@ -69,13 +69,14 @@ def coz_video_cekirdek(url, max_kalite):
         'socket_timeout': 15,
         'no_check_certificate': True,
         'geo_bypass': True,
+        'impersonate': 'chrome:windows',  # Doğrudan TLS/JA3 parmak izini Windows Chrome yapar
         'extractor_args': {
-            'generic': ['impersonate'],  # Cloudflare anti-bot korumasını delmek için can alıcı komut
+            'generic': ['impersonate'],  # Hatanın istediği kök komut
         },
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             'Referer': referer,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
             'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
             'Connection': 'keep-alive',
         }
@@ -91,7 +92,7 @@ def coz_video_cekirdek(url, max_kalite):
                     return sorted(clean_formats, key=lambda x: kalite_puani(x['url']), reverse=True)[0]['url']
                 return info['formats'][-1]['url']
     except Exception as e:
-        print(f"[!] Genel Motor Hatası: {str(e)}", flush=True)
+        print(f"[!] Kök Siber Motor Hatası: {str(e)}", flush=True)
                 
     return None
 
@@ -109,7 +110,7 @@ def get_video():
             print(f"[+] 302 SİBER SEVKİYAT BAŞARILI", flush=True)
             return redirect(final_link, code=302)
         
-        return "Kara Lord Hata: Kaynak sökülemedi!", 404
+        return "Kara Lord Hata: Kaynak sökülemedi usta!", 404
         
     except Exception as e:
         return f"Bulut Çatışması: {str(e)}", 500
