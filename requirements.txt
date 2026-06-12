@@ -1,4 +1,4 @@
 Flask==3.0.2
-yt-dlp>=2025.01.01
+yt-dlp==2025.01.26
 cloudscraper==1.2.71
-curl_cffi>=0.6.0b1
+curl_cffi==0.7.0b4
