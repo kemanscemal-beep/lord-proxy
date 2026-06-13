@@ -15,8 +15,6 @@ scraper = cloudscraper.create_scraper(
 
 def kalite_puani(url):
     url_lower = url.lower()
-    if '4k' in url_lower or '2160' in url_lower: return 2160
-    if '1440' in url_lower or '2k' in url_lower: return 1440
     if '1080' in url_lower: return 1080
     if '720' in url_lower: return 720
     if '480' in url_lower: return 480
