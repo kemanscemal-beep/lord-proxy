@@ -16,26 +16,27 @@ scraper = cloudscraper.create_scraper(
 def kalite_puani(url):
     url_lower = url.lower()
     if '4k' in url_lower or '2160' in url_lower: return 2160
-    if '1440' in url_lower: return 1440
+    if '1440' in url_lower or '2k' in url_lower: return 1440
     if '1080' in url_lower: return 1080
     if '720' in url_lower: return 720
+    if '480' in url_lower: return 480
     return 0
 
 def tv_box_youtube_formati(max_kalite):
     return f"best[height<={max_kalite}][ext=mp4]/best[height<={max_kalite}]"
 
-# SARMALARDA SIFIR GECİKME: Önbelleği 1024 linke çıkardım usta, hafıza artık iki kat daha güçlü!
+# SARMALARDA SIFIR GECİKME: Önbellek
 @lru_cache(maxsize=1024)
 def coz_video_cekirdek(url, max_kalite):
     url_lower = url.lower()
     domain = urlparse(url).netloc
     referer = f"https://{domain}/"
     
-    print(f"[➔] BULUT MOTORU TETİKLENDİ: {url}", flush=True)
+    print(f"[➔] BULUT MOTORU TETİKLENDİ: {url} (Üst Sınır: {max_kalite}p)", flush=True)
 
     # STRATEJİ 1: SPANKBANG RADARI
     if "spankbang" in url_lower:
-        response = scraper.get(url, timeout=6)  # Zaman aşımını 6 saniyeye çektim ki hantallık yapmasın
+        response = scraper.get(url, timeout=6)
         if response.status_code == 200:
             html_content = response.text
             links = re.findall(r'["\'](https?://[^"\']+\.(?:mp4|m3u8)[^"\']*)["\']', html_content)
@@ -43,9 +44,11 @@ def coz_video_cekirdek(url, max_kalite):
             for link in links:
                 clean_link = link.replace('\\/', '/')
                 if any(x in clean_link.lower() for x in ["preview", "trailer", "ad_stream"]): continue
-                # TV BOX SARMA AYARI: m3u8 akışları yerine öncelikle .mp4 uzantılarını zorla seçtiriyoruz
-                if ".mp4" in clean_link:
-                    potential_videos.append(clean_link)
+                
+                # KALİTE KONTROLÜ: Belirlenen max_kalite'den büyük linkleri eliyoruz usta!
+                if kalite_puani(clean_link) <= max_kalite:
+                    if ".mp4" in clean_link:
+                        potential_videos.append(clean_link)
             
             if potential_videos:
                 return sorted(potential_videos, key=kalite_puani, reverse=True)[0]
@@ -67,13 +70,13 @@ def coz_video_cekirdek(url, max_kalite):
 
     # STRATEJİ 3: GENEL SİTELER (PORNTREX, TNAFLIX, XHAMSTER VB.)
     else:
-        # JET MOTORU AYARLARI: Bağlantı hızını uçuracak gizli parametreler çaktım usta
+        # BURAYI SABİTLEDİK: Sitenin kafasına göre 2K/4K getirmesini engellemek için filtreyi yt-dlp seviyesine çektik
         ydl_opts = {
-            'format': 'best[ext=mp4]/best',  # TV Box'ta yağ gibi sarması için öncelikle MP4 formatını zorla usta!
+            'format': f'best[height<={max_kalite}][ext=mp4]/best[height<={max_kalite}]/best',
             'quiet': True,
             'no_warnings': True,
             'noplaylist': True,
-            'socket_timeout': 6,  # Bekleme süresini düşürdük, donan siteyi saniyede atlasın
+            'socket_timeout': 6,
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'http_headers': {
                 'Referer': referer,
@@ -81,19 +84,32 @@ def coz_video_cekirdek(url, max_kalite):
                 'Connection': 'keep-alive'
             },
             'no_check_certificate': True,
-            # Gelişmiş Hızlandırıcı: Protokol pazarlıklarını hızlandırır
             'extractor_args': {
                 'general': ['preconn'],
             }
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            if 'url' in info: return info['url']
-            elif 'formats' in info and len(info['formats']) > 0:
-                # Reklam akışlarını temizle ve en temiz saf MP4'ü yakala
-                clean_formats = [f for f in info['formats'] if 'url' in f and not any(x in f['url'].lower() for x in ["preview", "trailer", "ad_stream", "manifest", "playlist"])]
+            if 'url' in info: 
+                # Eğer tek dönen url bizim sınırdan büyükse filtre uygulayalım
+                if kalite_puani(info['url']) <= max_kalite:
+                    return info['url']
+                    
+            if 'formats' in info and len(info['formats']) > 0:
+                # Reklamları temizle ve sadece senin istediğin max_kalite ve altındaki formatları filtrele usta!
+                clean_formats = []
+                for f in info['formats']:
+                    if 'url' in f and not any(x in f['url'].lower() for x in ["preview", "trailer", "ad_stream", "manifest", "playlist"]):
+                        # Çözünürlük kontrolü (height değeri veya url kontrolü)
+                        f_height = f.get('height', 0) or kalite_puani(f['url'])
+                        if f_height <= max_kalite:
+                            clean_formats.append(f)
+                            
                 if clean_formats:
-                    return sorted(clean_formats, key=lambda x: kalite_puani(x['url']), reverse=True)[0]['url']
+                    # Kalan en yüksek ama sınırı geçmeyen formatı seçiyoruz
+                    return sorted(clean_formats, key=lambda x: x.get('height', 0) or kalite_puani(x['url']), reverse=True)[0]['url']
+                
+                # Eğer hiçbir şey filtrelenemezse sigorta olarak en son formatı dön
                 return info['formats'][-1]['url']
                 
     return None
@@ -101,7 +117,7 @@ def coz_video_cekirdek(url, max_kalite):
 @app.route('/')
 def get_video():
     url = request.args.get('url')
-    max_kalite = int(request.args.get('q', 1080))
+    max_kalite = int(request.args.get('q', 1080)) # Varsayılan yine 1080p usta
     
     if not url:
         return "Kara Lord Hata: URL eksik usta!", 400
